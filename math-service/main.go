@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"math-service/handlers"
 	"net/http"
 
@@ -9,7 +9,9 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, world!")
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{"message": "Поехали!"}
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
@@ -27,9 +29,6 @@ func main() {
 	handlerWithCors := c.Handler(http.DefaultServeMux)
 
 	http.HandleFunc("/math/integrate", handlers.IntegrateHandler)
-	http.HandleFunc("/math/vector", handlers.CurrentVectorHandler)
-	http.HandleFunc("/math/force", handlers.ForceHandler)
-	http.HandleFunc("/math/trajectory", handlers.TrajectoryHandler)
 
 	http.ListenAndServe(":8085", handlerWithCors)
 

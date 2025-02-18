@@ -1,4 +1,4 @@
-# frontend
+# rocket-simulation
 
 ## Project setup
 ```

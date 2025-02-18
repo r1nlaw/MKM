@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"physics-service/models"
@@ -11,89 +11,66 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Разрешаем любые соединения
+		return true
 	},
 }
 
-var wsClients = make(map[*websocket.Conn]bool) // Список клиентов WebSocket
-
-// Обработчик WebSocket соединений
-func wsHandler(w http.ResponseWriter, r *http.Request) {
-
-	w.Header().Set("Content-Type", "application/json")
-
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-	response := map[string]string{
-		"message": "WebSocket data",
-	}
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		http.Error(w, "Unable to marshal response", http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	w.Write(jsonResponse)
-
+// Handle WebSocket connection
+func webSocketConnectionHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Ошибка при установке соединения WebSocket: ", err)
+		log.Println("Failed to upgrade WebSocket:", err)
 		return
 	}
 	defer conn.Close()
 
-	wsClients[conn] = true
-
 	for {
-		var rocketState models.RocketState
-
-		err := conn.ReadJSON(&rocketState)
+		// Получаем данные ракеты от клиента
+		var incomingRocket models.Rocket
+		err := conn.ReadJSON(&incomingRocket)
 		if err != nil {
-			log.Println("Ошибка при чтении данных от клиента: ", err)
-			delete(wsClients, conn)
-			return
+			log.Println("Error reading rocket data:", err)
+			break
 		}
 
-		// Обработка запросов к математическому микросервису
-		force, err := sendRequestToMathService("http://localhost:8085/math/force", rocketState)
-		if err != nil {
-			log.Println("Ошибка при запросе на математический микросервис:", err)
-			return
+		// Обновляем глобальные данные ракеты
+		rocketData.X = incomingRocket.X
+		rocketData.Y = incomingRocket.Y
+		rocketData.Thrust = incomingRocket.Thrust
+		rocketData.Mass = incomingRocket.Mass
+
+		fmt.Printf("Before calling math service: X=%.2f, Y=%.2f, Thrust=%.2f, Mass=%.2f\n",
+			rocketData.X, rocketData.Y, rocketData.Thrust, rocketData.Mass)
+
+		// Проверяем, что данные корректны
+		if rocketData.Mass <= 0 {
+			log.Println("Error: Invalid rocket data (Mass must be > 0), skipping request")
+			continue
 		}
 
-		vector, err := sendRequestToMathService("http://localhost:8085/math/vector", rocketState)
+		// Отправляем данные в математический микросервис для вычислений
+		acceleration, err := getAccelerationFromMathService(rocketData)
 		if err != nil {
-			log.Println("Ошибка при запросе на математический микросервис:", err)
-			return
+			log.Println("Error fetching acceleration from math service:", err)
+			continue
 		}
 
-		trajectory, err := sendRequestToMathService("http://localhost:8085/math/trajectory", rocketState)
-		if err != nil {
-			log.Println("Ошибка при запросе на математический микросервис:", err)
-			return
+		// Обновляем физические параметры ракеты
+		rocketData.VelocityY += acceleration
+		rocketData.Y += rocketData.VelocityY * dt
+
+		// Проверяем, достигла ли ракета поверхности
+		if rocketData.Y >= surfaceY {
+			rocketData.Y = surfaceY
+			rocketData.VelocityY = 0
+			log.Println("Rocket has landed.")
 		}
 
-		integratedState, err := sendRequestToMathService("http://localhost:8085/math/integrate", rocketState)
+		// Отправляем обновленные данные обратно на фронтенд
+		err = conn.WriteJSON(rocketData)
 		if err != nil {
-			log.Println("Ошибка при запросе на математический микросервис:", err)
-			return
-		}
-
-		// Отправка обновленных данных обратно клиенту через WebSocket
-		response := map[string]interface{}{
-			"force":           force,
-			"vector":          vector,
-			"trajectory":      trajectory,
-			"integratedState": integratedState,
-		}
-
-		err = conn.WriteJSON(response)
-		if err != nil {
-			log.Println("Ошибка при отправке данных на клиент:", err)
-			delete(wsClients, conn)
-			return
+			log.Println("Error sending data to client:", err)
+			break
 		}
 	}
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"physics-service/handlers"
 
@@ -9,9 +9,10 @@ import (
 )
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Hello, world!")
+	w.Header().Set("Content-Type", "application/json")
+	response := map[string]string{"message": "Поехали!"}
+	json.NewEncoder(w).Encode(response)
 }
-
 func main() {
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:8080"}, // Разрешаем доступ только с порта 8080
@@ -24,11 +25,9 @@ func main() {
 	// Применяем middleware для CORS
 	handlerWithCors := c.Handler(http.DefaultServeMux)
 
-	http.HandleFunc("/physics/force", handlers.ForceHandler)
-	http.HandleFunc("/physics/vector", handlers.VectorHandler)
-	http.HandleFunc("/physics/trajectory", handlers.TrajectoryHandler)
-	http.HandleFunc("/physics/integrate", handlers.IntegrateHandler)
-	http.HandleFunc("/physics/ws", handlers.WebSocketHandler)
+	http.HandleFunc("/physics/ws", handlers.WebSocketConnectionHandle)
+	http.HandleFunc("/physics/rocket-image", handlers.DrowRocketHandler)
+	http.HandleFunc("/physics/update-thrust", handlers.UpdateRocketThrust)
 
 	http.ListenAndServe(":8086", handlerWithCors)
 }

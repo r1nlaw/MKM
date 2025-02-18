@@ -1,25 +1,15 @@
 package handlers
 
-import (
-	"net/http"
-)
+import "net/http"
 
-func ForceHandler(w http.ResponseWriter, r *http.Request) {
-	forceHandler(w, r)
+func WebSocketConnectionHandle(w http.ResponseWriter, r *http.Request) {
+	webSocketConnectionHandler(w, r)
 }
 
-func IntegrateHandler(w http.ResponseWriter, r *http.Request) {
-	integrateHandler(w, r)
+func DrowRocketHandler(w http.ResponseWriter, r *http.Request) {
+	RocketHandler(w, r)
 }
 
-func VectorHandler(w http.ResponseWriter, r *http.Request) {
-	vectorHandler(w, r)
-}
-
-func TrajectoryHandler(w http.ResponseWriter, r *http.Request) {
-	trajectoryHandler(w, r)
-}
-
-func WebSocketHandler(w http.ResponseWriter, r *http.Request) {
-	wsHandler(w, r)
+func UpdateRocketThrust(w http.ResponseWriter, r *http.Request) {
+	updateRocketThrust(w, r)
 }

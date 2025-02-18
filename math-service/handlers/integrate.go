@@ -2,56 +2,89 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
+	"io"
+	"math"
 	"math-service/models"
 	"net/http"
 )
 
+const g = -9.81  // Ускорение свободного падения
+const dt = 0.016 // Интервал времени (16 миллисекунд)
+
+// Обработчик для расчета ускорения
 func integrateHandler(w http.ResponseWriter, r *http.Request) {
-	var state models.RocketState
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&state)
+	var rocket models.Rocket
+
+	// Читаем тело запроса
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Недопустимы формат запроса", http.StatusBadRequest)
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
 	}
-	// Параметры интеграции (шаг времени)
-	const dt = 0.01 // 10 мс
+	fmt.Println("Received raw JSON:", string(body))
 
-	updateRocket(&state, dt)
+	// Декодируем JSON
+	err = json.Unmarshal(body, &rocket)
+	if err != nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Printf("Decoded rocket data: X=%.2f, Y=%.2f, Thrust=%.2f, Mass=%.2f\n",
+		rocket.X, rocket.Y, rocket.Thrust, rocket.Mass)
+
+	if rocket.Mass <= 0 {
+		http.Error(w, fmt.Sprintf("Invalid rocket data: mass = %f, thrust = %f", rocket.Mass, rocket.Thrust), http.StatusBadRequest)
+		return
+	}
+
+	// Рассчитываем ускорение, обновляем скорость и позицию
+	acceleration, updatedRocket := calculateRocketMovement(rocket)
+
+	if math.IsNaN(acceleration) {
+		http.Error(w, "Invalid acceleration data", http.StatusInternalServerError)
+		return
+	}
+
+	// Формируем ответ с расчетами
+	response := map[string]float64{
+		"acceleration": updatedRocket.Acceleration,
+		"velocity_y":   updatedRocket.VelocityY,
+		"new_y":        updatedRocket.Y,
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(state)
-	if err != nil {
-		log.Println("Ошибка кодировки", err)
-		http.Error(w, "Не удалось отправить ответ", http.StatusInternalServerError)
-	}
-
+	json.NewEncoder(w).Encode(response)
 }
 
-func updateRocket(state *models.RocketState, dt float64) {
-	g := 9.81
+// Функция для расчета ускорения, обновления скорости и позиции ракеты
+func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
+	gravityForce := rocket.Mass * g          // Сила тяжести
+	netForce := rocket.Thrust - gravityForce // Суммарная сила (тяга минус сила тяжести)
 
-	// Вычисляем силу тяги
-	var Fx, Fy float64
-
-	if state.Fuel > 0 {
-		Fx = 0
-		Fy = state.Thrust               // Считаем, что тяга направлена только вверх
-		state.Fuel -= state.Thrust * dt // Трата топлива
+	if rocket.Mass == 0 { // Избежание деления на ноль
+		return math.NaN(), rocket
 	}
 
-	// Вычисляем ускорение методом Эйлера
-	state.Ax = Fx / state.Mass
-	state.Ay = (Fy / state.Mass) - g
+	// Рассчитываем ускорение
+	acceleration := netForce / rocket.Mass
+	rocket.Acceleration = acceleration
 
-	// Обновляем скорости
-	state.Vx += state.Ax * dt
-	state.Vy += state.Ay * dt
+	// Обновляем скорость ракеты с учетом ускорения
+	rocket.VelocityY += acceleration * dt
 
-	// Обновляем позицию
-	state.X += state.Vx * dt
-	state.Y += state.Vy * dt
+	// Обновляем позицию ракеты
+	rocket.Y += rocket.VelocityY * dt
 
+	// Если ракета приземлилась (Y < 0), то она остается на поверхности
+	if rocket.Y < 0 {
+		rocket.Y = 0
+		rocket.VelocityY = 0
+	}
+
+	// Печатаем данные для отладки
+	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %.2f\n", acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
+
+	return acceleration, rocket
 }
