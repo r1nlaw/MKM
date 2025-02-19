@@ -15,7 +15,6 @@ import (
 )
 
 const surfaceY = 650.0
-const dt = 0.016
 
 // Инициализация начальных данных ракеты
 var rocketData = &models.Rocket{
@@ -23,8 +22,8 @@ var rocketData = &models.Rocket{
 	Y:         100,
 	Width:     20,
 	Height:    60,
-	VelocityY: -10.28088,
-	Thrust:    1000, // Начальная тяга равна 0
+	VelocityY: 0,
+	Thrust:    78408, // Начальная тяга
 	Mass:      8000,
 }
 
@@ -157,7 +156,7 @@ func updateRocketThrust(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Разбор данных JSON
+	// Разбор JSON
 	err = json.Unmarshal(body, &thrustData)
 	if err != nil {
 		http.Error(w, "Invalid input", http.StatusBadRequest)
@@ -166,5 +165,22 @@ func updateRocketThrust(w http.ResponseWriter, r *http.Request) {
 
 	// Обновление тяги ракеты
 	rocketData.Thrust = thrustData.Thrust
-	w.WriteHeader(http.StatusOK)
+
+	// Вызываем пересчет с новым значением Thrust
+	acceleration, err := getAccelerationFromMathService(rocketData)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error updating math service: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Отправляем обновленные данные клиенту
+	response := map[string]float64{
+		"new_thrust":   float64(rocketData.Thrust),
+		"acceleration": acceleration,
+		"velocity_y":   rocketData.VelocityY,
+		"new_y":        rocketData.Y,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

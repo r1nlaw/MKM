@@ -25,7 +25,6 @@ func main() {
 	// Применяем middleware для CORS
 	handlerWithCors := c.Handler(http.DefaultServeMux)
 
-	http.HandleFunc("/physics/ws", handlers.WebSocketConnectionHandle)
 	http.HandleFunc("/physics/rocket-image", handlers.DrowRocketHandler)
 	http.HandleFunc("/physics/update-thrust", handlers.UpdateRocketThrust)
 
