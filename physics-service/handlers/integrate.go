@@ -24,7 +24,7 @@ var rocketData = &models.Rocket{
 	Height:    60,
 	VelocityY: 0,
 	FuelMass:  5000,
-	Thrust:    0, // Начальная тяга
+	Thrust:    75850, // Начальная тяга
 	Mass:      8000,
 }
 
@@ -98,7 +98,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	requestData := models.RocketDataRequest{
 		X:         rocket.X,
 		Y:         rocket.Y,
-		Thrust:    rocket.Thrust,
+		Thrust:    rocket.Thrust, // Тяга передается сюда
 		Mass:      rocket.Mass,
 		FuelMass:  rocket.FuelMass,
 		VelocityY: rocket.VelocityY,
@@ -139,7 +139,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	rocket.VelocityY = response.VelocityY
 	rocket.Y = response.NewY
 
-	// Печатаем данные для отладки
+	// Логируем результат для отладки
 	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
 
 	return response.Acceleration, nil
@@ -168,12 +168,18 @@ func updateRocketThrust(w http.ResponseWriter, r *http.Request) {
 	// Обновление тяги ракеты
 	rocketData.Thrust = thrustData.Thrust
 
-	// Вызываем пересчет с новым значением Thrust
+	// Логируем изменение тяги для отладки
+	fmt.Printf("Updated Thrust: %d\n", rocketData.Thrust)
+
+	// Пересчет данных с новым значением тяги
 	acceleration, err := getAccelerationFromMathService(rocketData)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error updating math service: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	// Логируем обновленные данные ракеты
+	fmt.Printf("Updated rocket data: Y = %.2f, VelocityY = %.2f, Thrust = %d\n", rocketData.Y, rocketData.VelocityY, rocketData.Thrust)
 
 	// Отправляем обновленные данные клиенту
 	response := map[string]float64{
