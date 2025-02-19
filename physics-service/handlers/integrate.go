@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"os"
 	"physics-service/models"
 )
 
@@ -62,8 +63,14 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Проверяем, достигла ли ракета земли
+	if rocketData.Y >= surfaceY {
+		fmt.Println("Rocket has landed. Shutting down server...")
+		os.Exit(0)
+	}
+
 	// Печатаем данные ракеты для отладки
-	fmt.Printf("Updated rocket data: Y = %.2f, VelocityY = %.2f, Thrust = %.2f\n", rocketData.Y, rocketData.VelocityY, rocketData.Thrust)
+	fmt.Printf("Updated rocket data: Y = %.2f, VelocityY = %.2f, Thrust = %v\n", rocketData.Y, rocketData.VelocityY, rocketData.Thrust)
 
 	// Генерируем изображение ракеты
 	img := drawRocket(int(rocketData.X), int(rocketData.Y))
@@ -85,7 +92,7 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 type RocketDataRequest struct {
 	X         float64 `json:"x"`
 	Y         float64 `json:"y"`
-	Thrust    float64 `json:"thrust"`
+	Thrust    int     `json:"thrust"`
 	Mass      float64 `json:"mass"`
 	VelocityY float64 `json:"velocity_y"`
 }
@@ -147,7 +154,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	rocket.Y = response.NewY
 
 	// Печатаем данные для отладки
-	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %.2f\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
+	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
 
 	return response.Acceleration, nil
 }
@@ -155,7 +162,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 // Обработчик для обновления тяги ракеты
 func updateRocketThrust(w http.ResponseWriter, r *http.Request) {
 	var thrustData struct {
-		Thrust float64 `json:"thrust"`
+		Thrust int `json:"thrust"`
 	}
 
 	// Чтение данных с тела запроса

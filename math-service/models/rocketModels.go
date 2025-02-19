@@ -6,7 +6,7 @@ type Rocket struct {
 	Width        float64 `json:"width"`
 	Height       float64 `json:"height"`
 	VelocityY    float64 `json:"velocity_y"`
-	Thrust       float64 `json:"thrust"`
+	Thrust       int     `json:"thrust"`
 	Mass         float64 `json:"mass"`
 	Acceleration float64 `json:"acceleration"`
 }

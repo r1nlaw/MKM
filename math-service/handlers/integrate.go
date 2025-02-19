@@ -31,11 +31,11 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Decoded rocket data: X=%.2f, Y=%.2f, Thrust=%.2f, Mass=%.2f\n",
+	fmt.Printf("Decoded rocket data: X=%.2f, Y=%.2f, Thrust=%v, Mass=%.2f\n",
 		rocket.X, rocket.Y, rocket.Thrust, rocket.Mass)
 
 	if rocket.Mass <= 0 {
-		http.Error(w, fmt.Sprintf("Invalid rocket data: mass = %f, thrust = %f", rocket.Mass, rocket.Thrust), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid rocket data: mass = %f, thrust = %v", rocket.Mass, rocket.Thrust), http.StatusBadRequest)
 		return
 	}
 
@@ -60,8 +60,8 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 
 // Функция для расчета ускорения, обновления скорости и позиции ракеты
 func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
-	gravityForce := rocket.Mass * g          // Сила тяжести
-	netForce := rocket.Thrust - gravityForce // Суммарная сила (тяга минус сила тяжести)
+	gravityForce := rocket.Mass * g                   // Сила тяжести
+	netForce := float64(rocket.Thrust) - gravityForce // Суммарная сила (тяга минус сила тяжести)
 
 	if rocket.Mass == 0 { // Избежание деления на ноль
 		return math.NaN(), rocket
@@ -84,7 +84,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	}
 
 	// Печатаем данные для отладки
-	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %.2f\n", acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
+	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v\n", acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
 
 	return acceleration, rocket
 }
