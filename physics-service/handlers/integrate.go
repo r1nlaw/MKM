@@ -23,7 +23,8 @@ var rocketData = &models.Rocket{
 	Width:     20,
 	Height:    60,
 	VelocityY: 0,
-	Thrust:    78408, // Начальная тяга
+	FuelMass:  5000,
+	Thrust:    0, // Начальная тяга
 	Mass:      8000,
 }
 
@@ -99,6 +100,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 		Y:         rocket.Y,
 		Thrust:    rocket.Thrust,
 		Mass:      rocket.Mass,
+		FuelMass:  rocket.FuelMass,
 		VelocityY: rocket.VelocityY,
 	}
 
