@@ -14,7 +14,7 @@ import (
 	"physics-service/models"
 )
 
-const surfaceY = 850.0
+const surfaceY = 650.0
 const dt = 0.016
 
 // Инициализация начальных данных ракеты
@@ -31,7 +31,7 @@ var rocketData = &models.Rocket{
 // Генерация изображения ракеты
 func drawRocket(x, y int) image.Image {
 	// Создаем новое изображение размером 1000x900
-	img := image.NewRGBA(image.Rect(0, 0, 1000, 900))
+	img := image.NewRGBA(image.Rect(0, 0, 1000, 700))
 
 	// Задаем белый фон
 	white := color.RGBA{255, 255, 255, 255}
@@ -39,10 +39,10 @@ func drawRocket(x, y int) image.Image {
 
 	// Задаем цвет земли
 	groundColor := color.RGBA{0, 255, 0, 255} // Зеленый цвет земли
-	groundY := 850                            // Высота, на которой будет земля
+	groundY := 650                            // Высота, на которой будет земля
 
 	// Рисуем землю как прямоугольник
-	groundRect := image.Rect(0, groundY, 1000, 900)
+	groundRect := image.Rect(0, groundY, 1000, 700)
 	draw.Draw(img, groundRect, &image.Uniform{groundColor}, image.Point{}, draw.Over)
 
 	// Ракета — красного цвета
@@ -88,21 +88,6 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(imgBuffer.Bytes())
 }
 
-// Структура для запроса данных о ракете
-type RocketDataRequest struct {
-	X         float64 `json:"x"`
-	Y         float64 `json:"y"`
-	Thrust    int     `json:"thrust"`
-	Mass      float64 `json:"mass"`
-	VelocityY float64 `json:"velocity_y"`
-}
-
-type RocketDataResponse struct {
-	Acceleration float64 `json:"acceleration"`
-	VelocityY    float64 `json:"velocity_y"`
-	NewY         float64 `json:"new_y"`
-}
-
 // Отправка данных в математический микросервис для вычислений
 func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	if rocket.Mass <= 0 {
@@ -110,7 +95,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	}
 
 	// Формируем структуру данных для отправки на математический микросервис
-	requestData := RocketDataRequest{
+	requestData := models.RocketDataRequest{
 		X:         rocket.X,
 		Y:         rocket.Y,
 		Thrust:    rocket.Thrust,
@@ -143,7 +128,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	}
 
 	// Декодируем ответ от математического микросервиса
-	var response RocketDataResponse
+	var response models.RocketDataResponse
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return 0, fmt.Errorf("error decoding response from math service: %v", err)

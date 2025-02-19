@@ -9,8 +9,8 @@ import (
 	"net/http"
 )
 
-const g = -9.81  // Ускорение свободного падения
-const dt = 0.016 // Интервал времени (16 миллисекунд)
+const g = -9.81
+const dt = 0.016 // Интервал времени
 
 // Обработчик для расчета ускорения
 func integrateHandler(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +63,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	gravityForce := rocket.Mass * g                   // Сила тяжести
 	netForce := float64(rocket.Thrust) - gravityForce // Суммарная сила (тяга минус сила тяжести)
 
-	if rocket.Mass == 0 { // Избежание деления на ноль
+	if rocket.Mass == 0 {
 		return math.NaN(), rocket
 	}
 
@@ -77,7 +77,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	// Обновляем позицию ракеты
 	rocket.Y += rocket.VelocityY * dt
 
-	// Если ракета приземлилась (Y < 0), то она остается на поверхности
+	// Если ракета приземлилась, то она остается на поверхности
 	if rocket.Y < 0 {
 		rocket.Y = 0
 		rocket.VelocityY = 0

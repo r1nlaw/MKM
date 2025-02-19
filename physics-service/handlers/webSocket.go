@@ -39,7 +39,7 @@ func webSocketConnectionHandler(w http.ResponseWriter, r *http.Request) {
 		rocketData.Thrust = incomingRocket.Thrust
 		rocketData.Mass = incomingRocket.Mass
 
-		fmt.Printf("Before calling math service: X=%.2f, Y=%.2f, Thrust=%.2f, Mass=%.2f\n",
+		fmt.Printf("Before calling math service: X=%.2f, Y=%.2f, Thrust=%v, Mass=%.2f\n",
 			rocketData.X, rocketData.Y, rocketData.Thrust, rocketData.Mass)
 
 		// Проверяем, что данные корректны

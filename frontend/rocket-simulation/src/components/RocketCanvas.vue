@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1>Ракета на сервере</h1>
+    <h1>Посадка ракеты</h1>
     <img :src="rocketImageUrl" alt="Rocket Image" />
     <p>Тяга: {{ thrust }} N</p>
     <p>Нажмите стрелки вверх/вниз для изменения тяги.</p>
@@ -12,7 +12,7 @@ export default {
 data() {
   return {
     rocketImageUrl: "", // Ссылка на изображение ракеты
-    thrust: 1000,  // Начальная тяга (целое число)
+    thrust: 1000,  // Начальная тяга 
     intervalId: null, // Идентификатор интервала
   };
 },
@@ -36,11 +36,11 @@ methods: {
       .catch((error) => console.error("Error fetching rocket image:", error));
   },
   
-  // Начало обновления ракеты каждую миллисекунду
+  // Начало обновления ракеты 
   startRocketUpdates() {
     this.intervalId = setInterval(() => {
       this.fetchRocketImage();
-    }, 16); // Каждые 16 мс (60 FPS)
+    }, 16); // Каждые 16 мс 
   },
 
   // Обработка нажатия клавиш
