@@ -14,43 +14,51 @@ import (
 	"physics-service/models"
 )
 
-const surfaceY = 650.0
-
 // Инициализация начальных данных ракеты
 var rocketData = &models.Rocket{
-	X:         500,
-	Y:         100,
+	X:         100,
+	Y:         8000,
 	Width:     20,
 	Height:    60,
 	VelocityY: 0,
-	FuelMass:  5000,
-	Thrust:    75850, // Начальная тяга
-	Mass:      8000,
+	FuelMass:  270000,
+	Thrust:    0, // Начальная тяга
+	Mass:      300000,
 }
 
-// Генерация изображения ракеты
-func drawRocket(x, y int) image.Image {
-	// Создаем новое изображение размером 1000x900
-	img := image.NewRGBA(image.Rect(0, 0, 1000, 700))
+const (
+	imageHeight  = 600  // Высота изображения в пикселях
+	worldHeight  = 8000 // Реальная высота в метрах
+	surfaceY     = 100  // Высота земли в метрах
+	rocketWidth  = 20   // Ширина ракеты
+	rocketHeight = 60   // Высота ракеты в пикселях (оставляем без изменений)
+)
 
-	// Задаем белый фон
+func drawRocket(y float64) image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, 100, imageHeight))
+
+	// Белый фон
 	white := color.RGBA{255, 255, 255, 255}
 	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
 
-	// Задаем цвет земли
-	groundColor := color.RGBA{0, 255, 0, 255} // Зеленый цвет земли
-	groundY := 650                            // Высота, на которой будет земля
+	// Коэффициент масштабирования
+	scale := float64(imageHeight) / worldHeight
 
-	// Рисуем землю как прямоугольник
-	groundRect := image.Rect(0, groundY, 1000, 700)
+	// Преобразуем координаты из метров в пиксели
+	rocketY := imageHeight - int(y*scale) // Инверсия оси Y
+	groundY := imageHeight - int(surfaceY*scale)
+
+	// Рисуем землю
+	groundColor := color.RGBA{0, 255, 0, 255}
+	groundRect := image.Rect(0, groundY, 100, imageHeight)
 	draw.Draw(img, groundRect, &image.Uniform{groundColor}, image.Point{}, draw.Over)
 
-	// Ракета — красного цвета
+	// Позиционируем ракету по центру экрана
+	centerX := float64(img.Bounds().Dx()) / 2 // Получаем ширину изображения и делим на 2 для центра
 	rocketColor := color.RGBA{255, 0, 0, 255}
-	rocketRect := image.Rect(x-10, y-30, x+10, y)
+	rocketRect := image.Rect(int(centerX)-rocketWidth/2, rocketY-rocketHeight, int(centerX)+rocketWidth/2, rocketY)
 	draw.Draw(img, rocketRect, &image.Uniform{rocketColor}, image.Point{}, draw.Over)
 
-	// Возвращаем изображение с ракетой и землей
 	return img
 }
 
@@ -64,7 +72,7 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Проверяем, достигла ли ракета земли
-	if rocketData.Y >= surfaceY {
+	if rocketData.Y <= surfaceY {
 		fmt.Println("Rocket has landed. Shutting down server...")
 		os.Exit(0)
 	}
@@ -73,7 +81,7 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Updated rocket data: Y = %.2f, VelocityY = %.2f, Thrust = %v\n", rocketData.Y, rocketData.VelocityY, rocketData.Thrust)
 
 	// Генерируем изображение ракеты
-	img := drawRocket(int(rocketData.X), int(rocketData.Y))
+	img := drawRocket(float64(rocketData.Y))
 
 	// Буфер для изображения
 	imgBuffer := new(bytes.Buffer)
@@ -96,7 +104,6 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 
 	// Формируем структуру данных для отправки на математический микросервис
 	requestData := models.RocketDataRequest{
-		X:         rocket.X,
 		Y:         rocket.Y,
 		Thrust:    rocket.Thrust, // Тяга передается сюда
 		Mass:      rocket.Mass,

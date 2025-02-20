@@ -12,7 +12,7 @@ export default {
   data() {
     return {
       rocketImageUrl: "", // Ссылка на изображение ракеты
-      thrust: 75850,  // Начальная тяга
+      thrust: 0,  // Начальная тяга
       intervalId: null, // Идентификатор интервала
     };
   },

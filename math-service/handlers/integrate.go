@@ -10,9 +10,13 @@ import (
 )
 
 const (
-	g  = 9.81  // Ускорение свободного падения
-	dt = 0.016 // Интервал времени
-	ve = 3000  // Скорость истечения газа (м/с)
+	g       = 9.81  // Ускорение свободного падения (м/с²)
+	dt      = 0.016 // Интервал времени (шаг симуляции)
+	ve      = 3000  // Скорость истечения газа (м/с)
+	rho0    = 1.225 // Плотность воздуха у поверхности (кг/м³)
+	Cd      = 0.5   // Коэффициент лобового сопротивления
+	A       = 1.0   // Площадь поперечного сечения ракеты (м²)
+	H_scale = 8000  // Высота масштаба атмосферы (~8 км)
 )
 
 var rocketState = models.Rocket{}
@@ -40,7 +44,7 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 		rocketState = inputRocket
 	}
 
-	// Если топлива нет, сбрасываем тягу до 0 и не позволяем увеличивать
+	// Если топлива нет, сбрасываем тягу до 0
 	if rocketState.FuelMass <= 0 {
 		rocketState.Thrust = 0
 	} else {
@@ -68,12 +72,13 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 		return math.NaN(), rocket
 	}
 
-	// Расчет изменения массы топлива
-	massFlowRate := float64(rocket.Thrust) / ve // Расход топлива
+	// Расход топлива
+	massFlowRate := float64(rocket.Thrust) / ve
 	fuelConsumed := massFlowRate * dt
 
+	// Ограничение, чтобы не сжигать больше топлива, чем есть
 	if fuelConsumed > rocket.FuelMass {
-		fuelConsumed = rocket.FuelMass // Не сжигаем больше, чем есть
+		fuelConsumed = rocket.FuelMass
 	}
 	rocket.FuelMass -= fuelConsumed
 	rocket.Mass -= fuelConsumed // Общая масса уменьшается
@@ -83,8 +88,17 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 		rocket.Thrust = 0
 	}
 
-	// Рассчитываем ускорение по уравнению Мещерского
-	acceleration := g - (float64(rocket.Thrust) / rocket.Mass)
+	// Плотность воздуха на текущей высоте (экспоненциальное убывание)
+	rho := rho0 * math.Exp(-rocket.Y/H_scale)
+
+	// Сила сопротивления воздуха (D = 0.5 * Cd * rho * A * v²)
+	dragForce := 0.5 * Cd * rho * A * rocket.VelocityY * rocket.VelocityY
+	if rocket.VelocityY > 0 {
+		dragForce = -dragForce // Сопротивление всегда противоположно движению
+	}
+
+	// Ускорение по уравнению Мещерского: a = (T - mg - D) / m
+	acceleration := (float64(rocket.Thrust) - (rocket.Mass * g) + dragForce) / rocket.Mass
 	rocket.Acceleration = acceleration
 
 	// Обновляем скорость и позицию
@@ -100,15 +114,14 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	// Проверка сохранения энергии
 	kineticEnergy := 0.5 * rocket.Mass * rocket.VelocityY * rocket.VelocityY
 	potentialEnergy := rocket.Mass * g * rocket.Y
-	// Добавляем только энергию топлива, если оно сжигается
 	fuelEnergy := 0.0
 	if fuelConsumed > 0 {
 		fuelEnergy = (rocket.FuelMass + fuelConsumed) * ve * ve / 2
 	}
 	totalEnergy := kineticEnergy + potentialEnergy + fuelEnergy
 
-	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Fuel: %.2f, Energy: %.2f, Mass: %.2f\n",
-		acceleration, rocket.Y, rocket.VelocityY, rocket.FuelMass, totalEnergy, rocket.Mass)
+	fmt.Printf("Acceleration: %.2f, Y: %.2f, VelocityY: %.2f, Fuel: %.2f, Energy: %.2f, Mass: %.2f, Drag: %.2f\n",
+		acceleration, rocket.Y, rocket.VelocityY, rocket.FuelMass, totalEnergy, rocket.Mass, dragForce)
 
 	return acceleration, rocket
 }
