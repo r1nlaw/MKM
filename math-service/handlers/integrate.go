@@ -15,7 +15,7 @@ const (
 	ve      = 3000  // Скорость истечения газа (м/с)
 	rho0    = 1.225 // Плотность воздуха у поверхности (кг/м³)
 	Cd      = 0.5   // Коэффициент лобового сопротивления
-	A       = 1.0   // Площадь поперечного сечения ракеты (м²)
+	A       = 5.0   // Площадь поперечного сечения ракеты (м²)
 	H_scale = 8000  // Высота масштаба атмосферы (~8 км)
 )
 
@@ -81,7 +81,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 		fuelConsumed = rocket.FuelMass
 	}
 	rocket.FuelMass -= fuelConsumed
-	rocket.Mass -= fuelConsumed // Общая масса уменьшается
+	rocket.Mass -= fuelConsumed
 
 	// Если топлива нет, сбрасываем тягу до 0
 	if rocket.FuelMass <= 0 {
@@ -91,7 +91,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	// Плотность воздуха на текущей высоте (экспоненциальное убывание)
 	rho := rho0 * math.Exp(-rocket.Y/H_scale)
 
-	// Сила сопротивления воздуха (D = 0.5 * Cd * rho * A * v²)
+	// Сила сопротивления воздуха
 	dragForce := 0.5 * Cd * rho * A * rocket.VelocityY * rocket.VelocityY
 	if rocket.VelocityY > 0 {
 		dragForce = -dragForce // Сопротивление всегда противоположно движению

@@ -22,7 +22,7 @@ var rocketData = &models.Rocket{
 	Height:    60,
 	VelocityY: 0,
 	FuelMass:  270000,
-	Thrust:    0, // Начальная тяга
+	Thrust:    75000,
 	Mass:      300000,
 }
 
@@ -30,8 +30,8 @@ const (
 	imageHeight  = 600  // Высота изображения в пикселях
 	worldHeight  = 8000 // Реальная высота в метрах
 	surfaceY     = 100  // Высота земли в метрах
-	rocketWidth  = 20   // Ширина ракеты
-	rocketHeight = 60   // Высота ракеты в пикселях (оставляем без изменений)
+	rocketWidth  = 20
+	rocketHeight = 60
 )
 
 func drawRocket(y float64) image.Image {
@@ -54,7 +54,7 @@ func drawRocket(y float64) image.Image {
 	draw.Draw(img, groundRect, &image.Uniform{groundColor}, image.Point{}, draw.Over)
 
 	// Позиционируем ракету по центру экрана
-	centerX := float64(img.Bounds().Dx()) / 2 // Получаем ширину изображения и делим на 2 для центра
+	centerX := float64(img.Bounds().Dx()) / 2
 	rocketColor := color.RGBA{255, 0, 0, 255}
 	rocketRect := image.Rect(int(centerX)-rocketWidth/2, rocketY-rocketHeight, int(centerX)+rocketWidth/2, rocketY)
 	draw.Draw(img, rocketRect, &image.Uniform{rocketColor}, image.Point{}, draw.Over)
@@ -64,6 +64,7 @@ func drawRocket(y float64) image.Image {
 
 // Обработчик для обновления позиции ракеты и отправки изображения
 func RocketHandler(w http.ResponseWriter, r *http.Request) {
+
 	// Вызываем функцию для вычислений
 	_, err := getAccelerationFromMathService(rocketData)
 	if err != nil {
@@ -73,7 +74,12 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Проверяем, достигла ли ракета земли
 	if rocketData.Y <= surfaceY {
-		fmt.Println("Rocket has landed. Shutting down server...")
+		if rocketData.VelocityY >= -5 { // Если скорость при приземлении <= 5 м/с
+			fmt.Println("Rocket has landed successfully!")
+		} else {
+			fmt.Println("Rocket crashed!")
+		}
+		// Закрываем сервер после посадки
 		os.Exit(0)
 	}
 
@@ -105,7 +111,7 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	// Формируем структуру данных для отправки на математический микросервис
 	requestData := models.RocketDataRequest{
 		Y:         rocket.Y,
-		Thrust:    rocket.Thrust, // Тяга передается сюда
+		Thrust:    rocket.Thrust,
 		Mass:      rocket.Mass,
 		FuelMass:  rocket.FuelMass,
 		VelocityY: rocket.VelocityY,

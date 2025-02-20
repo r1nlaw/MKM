@@ -1,7 +1,7 @@
 <template>
   <div>
     <h1>Посадка ракеты</h1>
-    <img :src="rocketImageUrl" alt="Rocket Image" />
+    <img :src="rocketImageUrl" alt="" />
     <p>Тяга: {{ thrust }}</p>
     <p>Нажмите стрелки вверх/вниз для изменения тяги.</p>
   </div>
@@ -11,14 +11,14 @@
 export default {
   data() {
     return {
-      rocketImageUrl: "", // Ссылка на изображение ракеты
-      thrust: 0,  // Начальная тяга
+      rocketImageUrl: "", 
+      thrust: 75000,  // Начальная тяга
       intervalId: null, // Идентификатор интервала
     };
   },
   mounted() {
-    this.fetchRocketImage(); // При монтировании компонента запрашиваем изображение
-    this.startRocketUpdates(); // Начинаем обновлять ракету каждую миллисекунду
+    this.fetchRocketImage(); 
+    this.startRocketUpdates(); 
     window.addEventListener('keydown', this.handleKeyPress); // Обрабатываем нажатия клавиш
   },
   beforeUnmount() {
@@ -60,7 +60,7 @@ export default {
 
     // Уменьшение тяги на 5% с округлением до целого, но не меньше 1
     decreaseThrust() {
-      if (this.thrust > 1) {
+      if (this.thrust > 0) {
         this.thrust = Math.round(this.thrust * 0.95);
       }
       this.updateRocketThrust();
