@@ -12,12 +12,14 @@ import (
 	"net/http"
 	"os"
 	"physics-service/models"
+	"time"
+
+	"golang.org/x/exp/rand"
 )
 
 // Инициализация начальных данных ракеты
 var rocketData = &models.Rocket{
-	X:         100,
-	Y:         8000,
+	Y:         3000,
 	Width:     20,
 	Height:    60,
 	VelocityY: 0,
@@ -27,22 +29,32 @@ var rocketData = &models.Rocket{
 }
 
 const (
-	imageHeight  = 600  // Высота изображения в пикселях
-	worldHeight  = 8000 // Реальная высота в метрах
+	imageHeight  = 800  // Высота изображения в пикселях
+	worldHeight  = 3000 // Реальная высота в метрах
 	surfaceY     = 100  // Высота земли в метрах
+	platform     = 115
 	rocketWidth  = 20
 	rocketHeight = 60
 )
 
-func drawRocket(y float64) image.Image {
-	img := image.NewRGBA(image.Rect(0, 0, 100, imageHeight))
+func drawRocket(y, velocityY float64) image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, 1900, imageHeight))
 
-	// Белый фон
-	white := color.RGBA{255, 255, 255, 255}
-	draw.Draw(img, img.Bounds(), &image.Uniform{white}, image.Point{}, draw.Src)
+	// Чёрный фон (космос)
+	black := color.RGBA{0, 0, 0, 255}
+	draw.Draw(img, img.Bounds(), &image.Uniform{black}, image.Point{}, draw.Src)
 
 	// Коэффициент масштабирования
 	scale := float64(imageHeight) / worldHeight
+	// Добавляем звёзды случайными точками
+	white := color.RGBA{255, 255, 255, 255}
+	for i := 0; i < 50; i++ {
+		x := rand.Intn(img.Bounds().Dx())
+		y := rand.Intn(imageHeight - int(platform*scale)) // Только в воздухе
+		img.Set(x, y, white)
+	}
+	// Позиционируем ракету по центру
+	centerX := float64(img.Bounds().Dx()) / 2
 
 	// Преобразуем координаты из метров в пиксели
 	rocketY := imageHeight - int(y*scale) // Инверсия оси Y
@@ -50,14 +62,111 @@ func drawRocket(y float64) image.Image {
 
 	// Рисуем землю
 	groundColor := color.RGBA{0, 255, 0, 255}
-	groundRect := image.Rect(0, groundY, 100, imageHeight)
+	groundRect := image.Rect(0, groundY, 1900, imageHeight)
 	draw.Draw(img, groundRect, &image.Uniform{groundColor}, image.Point{}, draw.Over)
 
-	// Позиционируем ракету по центру экрана
-	centerX := float64(img.Bounds().Dx()) / 2
-	rocketColor := color.RGBA{255, 0, 0, 255}
-	rocketRect := image.Rect(int(centerX)-rocketWidth/2, rocketY-rocketHeight, int(centerX)+rocketWidth/2, rocketY)
-	draw.Draw(img, rocketRect, &image.Uniform{rocketColor}, image.Point{}, draw.Over)
+	/* Рисуем космическую площадку (серый прямоугольник)
+	platformColor := color.RGBA{150, 150, 150, 255}
+	platformWidth := 150
+	platformHeight := 5
+	platformX := int(centerX) - platformWidth/2
+	platformY := groundY - platformHeight
+	platformRect := image.Rect(platformX, platformY, platformX+platformWidth, groundY)
+	draw.Draw(img, platformRect, &image.Uniform{platformColor}, image.Point{}, draw.Over)
+
+	stripeColor1 := color.RGBA{255, 255, 0, 255}
+	stripeColor2 := color.RGBA{150, 150, 150, 255}
+	stripeWidth := 12
+	for i := 0; i < platformWidth; i += stripeWidth * 2 {
+		draw.Draw(img, image.Rect(platformX+i, platformY, platformX+i+stripeWidth, groundY),
+			&image.Uniform{stripeColor1}, image.Point{}, draw.Over)
+		draw.Draw(img, image.Rect(platformX+i+stripeWidth, platformY, platformX+i+stripeWidth*2, groundY),
+			&image.Uniform{stripeColor2}, image.Point{}, draw.Over)
+	}
+
+	// Рисуем здания
+	buildingColor := color.RGBA{100, 100, 100, 255} // Серый цвет зданий
+	windowColor := color.RGBA{200, 200, 200, 255}   // Светло-серый цвет окон
+	buildingWidth := 80
+	buildingHeight := 50
+	buildingSpacing := 20
+	windowSize := 10
+	windowSpacing := 15
+
+	for i := 0; i < 5; i++ {
+		// Левые здания
+		leftX := 200 + i*(buildingWidth+buildingSpacing)
+		buildingRect := image.Rect(leftX, groundY-buildingHeight, leftX+buildingWidth, groundY)
+		draw.Draw(img, buildingRect, &image.Uniform{buildingColor}, image.Point{}, draw.Over)
+
+		// Окна на левом здании
+		for row := 0; row < buildingHeight/(windowSize+windowSpacing); row++ {
+			for col := 0; col < buildingWidth/(windowSize+windowSpacing); col++ {
+				winX := leftX + col*(windowSize+windowSpacing) + windowSpacing/2
+				winY := groundY - buildingHeight + row*(windowSize+windowSpacing) + windowSpacing/2
+				winRect := image.Rect(winX, winY, winX+windowSize, winY+windowSize)
+				draw.Draw(img, winRect, &image.Uniform{windowColor}, image.Point{}, draw.Over)
+			}
+		}
+
+		// Правые здания
+		rightX := img.Bounds().Dx() - 200 - i*(buildingWidth+buildingSpacing) - buildingWidth
+		buildingRect = image.Rect(rightX, groundY-buildingHeight, rightX+buildingWidth, groundY)
+		draw.Draw(img, buildingRect, &image.Uniform{buildingColor}, image.Point{}, draw.Over)
+
+		// Окна на правом здании
+		for row := 0; row < buildingHeight/(windowSize+windowSpacing); row++ {
+			for col := 0; col < buildingWidth/(windowSize+windowSpacing); col++ {
+				winX := rightX + col*(windowSize+windowSpacing) + windowSpacing/2
+				winY := groundY - buildingHeight + row*(windowSize+windowSpacing) + windowSpacing/2
+				winRect := image.Rect(winX, winY, winX+windowSize, winY+windowSize)
+				draw.Draw(img, winRect, &image.Uniform{windowColor}, image.Point{}, draw.Over)
+			}
+		}
+	}
+	*/
+	// Рисуем корпус ракеты
+	rocketBody := color.RGBA{200, 200, 200, 255}
+	bodyRect := image.Rect(int(centerX)-rocketWidth/2, rocketY-rocketHeight, int(centerX)+rocketWidth/2, rocketY)
+	draw.Draw(img, bodyRect, &image.Uniform{rocketBody}, image.Point{}, draw.Over)
+
+	// Рисуем нос ракеты (треугольник)
+	noseColor := color.RGBA{200, 200, 200, 255}
+	for i := 0; i < rocketWidth; i++ {
+		for j := 0; j < i/2; j++ { // Создаём треугольную форму
+			img.Set(int(centerX)-i/2+j, rocketY-rocketHeight-5-j, noseColor)
+			img.Set(int(centerX)+i/2-j, rocketY-rocketHeight-5-j, noseColor)
+		}
+	}
+
+	// Рисуем стабилизаторы
+	stabilizerColor := color.RGBA{255, 0, 0, 255}
+	for i := -3; i <= 3; i++ {
+		img.Set(int(centerX)-rocketWidth/2-3, rocketY-10+i, stabilizerColor)
+		img.Set(int(centerX)+rocketWidth/2+3, rocketY-10+i, stabilizerColor)
+	}
+
+	// Если ракета достигла земли, рисуем флаг успеха или аварии
+	if y <= platform {
+		flagX := int(centerX) + rocketWidth/2 + 15
+		flagY := imageHeight - int(platform*scale) - 15
+
+		var flagColor color.RGBA
+		if velocityY < -5 {
+			flagColor = color.RGBA{255, 0, 0, 255} // Красный флаг (авария)
+		} else {
+			flagColor = color.RGBA{0, 255, 0, 255} // Зелёный флаг (успешно)
+		}
+
+		// Палка для флага
+		poleColor := color.RGBA{150, 150, 150, 255}
+		poleRect := image.Rect(flagX-2, flagY-8, flagX, flagY+15) // Высота флагштока ~30 пикселей
+		draw.Draw(img, poleRect, &image.Uniform{poleColor}, image.Point{}, draw.Over)
+
+		// Рисуем флаг (прямоугольник)
+		flagRect := image.Rect(flagX, flagY-8, flagX+10, flagY+5)
+		draw.Draw(img, flagRect, &image.Uniform{flagColor}, image.Point{}, draw.Over)
+	}
 
 	return img
 }
@@ -72,22 +181,8 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем, достигла ли ракета земли
-	if rocketData.Y <= surfaceY {
-		if rocketData.VelocityY >= -5 { // Если скорость при приземлении <= 5 м/с
-			fmt.Println("Rocket has landed successfully!")
-		} else {
-			fmt.Println("Rocket crashed!")
-		}
-		// Закрываем сервер после посадки
-		os.Exit(0)
-	}
-
-	// Печатаем данные ракеты для отладки
-	fmt.Printf("Updated rocket data: Y = %.2f, VelocityY = %.2f, Thrust = %v\n", rocketData.Y, rocketData.VelocityY, rocketData.Thrust)
-
 	// Генерируем изображение ракеты
-	img := drawRocket(float64(rocketData.Y))
+	img := drawRocket(float64(rocketData.Y), float64(rocketData.VelocityY))
 
 	// Буфер для изображения
 	imgBuffer := new(bytes.Buffer)
@@ -100,6 +195,22 @@ func RocketHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.WriteHeader(http.StatusOK)
 	w.Write(imgBuffer.Bytes())
+
+	// Проверяем, достигла ли ракета земли
+	if rocketData.Y <= platform {
+		if rocketData.VelocityY >= -5 {
+			fmt.Println("Rocket has landed successfully!")
+		} else {
+			fmt.Println("Rocket crashed!")
+		}
+
+		// Даем клиенту время отобразить последний кадр перед закрытием
+		go func() {
+			time.Sleep(16 * time.Millisecond)
+			os.Exit(0)
+		}()
+	}
+
 }
 
 // Отправка данных в математический микросервис для вычислений

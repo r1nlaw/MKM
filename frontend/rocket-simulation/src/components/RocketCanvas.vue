@@ -40,7 +40,7 @@ export default {
     startRocketUpdates() {
       this.intervalId = setInterval(() => {
         this.fetchRocketImage();
-      }, 16); // Каждые 16 мс
+      }, 32); // Каждые 16 мс
     },
 
     // Обработка нажатия клавиш
