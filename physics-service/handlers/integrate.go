@@ -65,66 +65,6 @@ func drawRocket(y, velocityY float64) image.Image {
 	groundRect := image.Rect(0, groundY, 1900, imageHeight)
 	draw.Draw(img, groundRect, &image.Uniform{groundColor}, image.Point{}, draw.Over)
 
-	/* Рисуем космическую площадку (серый прямоугольник)
-	platformColor := color.RGBA{150, 150, 150, 255}
-	platformWidth := 150
-	platformHeight := 5
-	platformX := int(centerX) - platformWidth/2
-	platformY := groundY - platformHeight
-	platformRect := image.Rect(platformX, platformY, platformX+platformWidth, groundY)
-	draw.Draw(img, platformRect, &image.Uniform{platformColor}, image.Point{}, draw.Over)
-
-	stripeColor1 := color.RGBA{255, 255, 0, 255}
-	stripeColor2 := color.RGBA{150, 150, 150, 255}
-	stripeWidth := 12
-	for i := 0; i < platformWidth; i += stripeWidth * 2 {
-		draw.Draw(img, image.Rect(platformX+i, platformY, platformX+i+stripeWidth, groundY),
-			&image.Uniform{stripeColor1}, image.Point{}, draw.Over)
-		draw.Draw(img, image.Rect(platformX+i+stripeWidth, platformY, platformX+i+stripeWidth*2, groundY),
-			&image.Uniform{stripeColor2}, image.Point{}, draw.Over)
-	}
-
-	// Рисуем здания
-	buildingColor := color.RGBA{100, 100, 100, 255} // Серый цвет зданий
-	windowColor := color.RGBA{200, 200, 200, 255}   // Светло-серый цвет окон
-	buildingWidth := 80
-	buildingHeight := 50
-	buildingSpacing := 20
-	windowSize := 10
-	windowSpacing := 15
-
-	for i := 0; i < 5; i++ {
-		// Левые здания
-		leftX := 200 + i*(buildingWidth+buildingSpacing)
-		buildingRect := image.Rect(leftX, groundY-buildingHeight, leftX+buildingWidth, groundY)
-		draw.Draw(img, buildingRect, &image.Uniform{buildingColor}, image.Point{}, draw.Over)
-
-		// Окна на левом здании
-		for row := 0; row < buildingHeight/(windowSize+windowSpacing); row++ {
-			for col := 0; col < buildingWidth/(windowSize+windowSpacing); col++ {
-				winX := leftX + col*(windowSize+windowSpacing) + windowSpacing/2
-				winY := groundY - buildingHeight + row*(windowSize+windowSpacing) + windowSpacing/2
-				winRect := image.Rect(winX, winY, winX+windowSize, winY+windowSize)
-				draw.Draw(img, winRect, &image.Uniform{windowColor}, image.Point{}, draw.Over)
-			}
-		}
-
-		// Правые здания
-		rightX := img.Bounds().Dx() - 200 - i*(buildingWidth+buildingSpacing) - buildingWidth
-		buildingRect = image.Rect(rightX, groundY-buildingHeight, rightX+buildingWidth, groundY)
-		draw.Draw(img, buildingRect, &image.Uniform{buildingColor}, image.Point{}, draw.Over)
-
-		// Окна на правом здании
-		for row := 0; row < buildingHeight/(windowSize+windowSpacing); row++ {
-			for col := 0; col < buildingWidth/(windowSize+windowSpacing); col++ {
-				winX := rightX + col*(windowSize+windowSpacing) + windowSpacing/2
-				winY := groundY - buildingHeight + row*(windowSize+windowSpacing) + windowSpacing/2
-				winRect := image.Rect(winX, winY, winX+windowSize, winY+windowSize)
-				draw.Draw(img, winRect, &image.Uniform{windowColor}, image.Point{}, draw.Over)
-			}
-		}
-	}
-	*/
 	// Рисуем корпус ракеты
 	rocketBody := color.RGBA{200, 200, 200, 255}
 	bodyRect := image.Rect(int(centerX)-rocketWidth/2, rocketY-rocketHeight, int(centerX)+rocketWidth/2, rocketY)
@@ -260,10 +200,15 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	}
 
 	// Обновляем данные ракеты с учетом ответа
+	rocket.Acceleration = response.Acceleration
 	rocket.VelocityY = response.VelocityY
 	rocket.Y = response.NewY
+	rocket.FuelMass = response.FuelMass
+	rocket.Mass = response.Mass
+	rocket.Drag = response.Drag
+	rocket.TotalEnergy = response.TotalEnergy
 
-	// Логируем результат для отладки
+	// Логируем результат
 	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
 
 	return response.Acceleration, nil
@@ -315,4 +260,14 @@ func updateRocketThrust(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func updateDataHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Кодируем текущее состояние ракеты
+	if err := json.NewEncoder(w).Encode(rocketData); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to encode rocket data: %v", err), http.StatusInternalServerError)
+		return
+	}
 }

@@ -27,6 +27,7 @@ func main() {
 
 	http.HandleFunc("/physics/rocket-image", handlers.DrowRocketHandler)
 	http.HandleFunc("/physics/update-thrust", handlers.UpdateRocketThrust)
+	http.HandleFunc("/physics/update-data", handlers.UpdateDataHandler)
 
 	http.ListenAndServe(":8086", handlerWithCors)
 }

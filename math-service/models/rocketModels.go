@@ -9,4 +9,6 @@ type Rocket struct {
 	Mass         float64 `json:"mass"`
 	FuelMass     float64 `json:"fuel_mass"`
 	Acceleration float64 `json:"acceleration"`
+	Drag         float64 `json:"drag"`
+	Energy       float64 `json:"energy"`
 }

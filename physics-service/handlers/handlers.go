@@ -9,3 +9,7 @@ func DrowRocketHandler(w http.ResponseWriter, r *http.Request) {
 func UpdateRocketThrust(w http.ResponseWriter, r *http.Request) {
 	updateRocketThrust(w, r)
 }
+
+func UpdateDataHandler(w http.ResponseWriter, r *http.Request) {
+	updateDataHandler(w, r)
+}

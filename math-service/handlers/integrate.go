@@ -58,15 +58,18 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]float64{
 		"acceleration": rocketState.Acceleration,
 		"velocity_y":   rocketState.VelocityY,
-		"new_y":        rocketState.Y,
+		"y":            rocketState.Y,
 		"fuel_mass":    rocketState.FuelMass,
+		"mass":         rocketState.Mass,
+		"drag":         rocketState.Drag,
+		"energy":       rocketState.Energy,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
-// Функция для расчета движения ракеты с учетом уравнения Мещерского
+// Функция для расчета движения ракеты с уравнением Мещерского
 func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	if rocket.Mass == 0 {
 		return math.NaN(), rocket
@@ -96,8 +99,9 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 	if rocket.VelocityY > 0 {
 		dragForce = -dragForce // Сопротивление всегда противоположно движению
 	}
+	rocket.Drag = dragForce
 
-	// Ускорение по уравнению Мещерского: a = (T - mg - D) / m
+	// Ускорение по уравнению Мещерского: a = (T - mg + D) / m
 	acceleration := (float64(rocket.Thrust) - (rocket.Mass * g) + dragForce) / rocket.Mass
 	rocket.Acceleration = acceleration
 
@@ -119,6 +123,7 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 		fuelEnergy = (rocket.FuelMass + fuelConsumed) * ve * ve / 2
 	}
 	totalEnergy := kineticEnergy + potentialEnergy + fuelEnergy
+	rocket.Energy = totalEnergy
 
 	fmt.Printf("Acceleration: %.2f, Y: %.2f, VelocityY: %.2f, Fuel: %.2f, Energy: %.2f, Mass: %.2f, Drag: %.2f\n",
 		acceleration, rocket.Y, rocket.VelocityY, rocket.FuelMass, totalEnergy, rocket.Mass, dragForce)
