@@ -19,18 +19,19 @@ import (
 
 // Инициализация начальных данных ракеты
 var rocketData = &models.Rocket{
-	Y:         3000,
-	Width:     20,
-	Height:    60,
-	VelocityY: 0,
-	FuelMass:  270000,
-	Thrust:    75000,
-	Mass:      300000,
+	Y:           9000,
+	Width:       20,
+	Height:      60,
+	VelocityY:   0,
+	FuelMass:    270000,
+	Thrust:      75000,
+	Mass:        300000,
+	InitialMass: 0,
 }
 
 const (
 	imageHeight  = 800  // Высота изображения в пикселях
-	worldHeight  = 3000 // Реальная высота в метрах
+	worldHeight  = 9000 // Реальная высота в метрах
 	surfaceY     = 100  // Высота земли в метрах
 	platform     = 115
 	rocketWidth  = 20
@@ -207,9 +208,10 @@ func getAccelerationFromMathService(rocket *models.Rocket) (float64, error) {
 	rocket.Mass = response.Mass
 	rocket.Drag = response.Drag
 	rocket.TotalEnergy = response.TotalEnergy
+	rocket.Losses = response.Losses
 
 	// Логируем результат
-	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust)
+	fmt.Printf("Acceleration: %.2f, New Y: %.2f, New VelocityY: %.2f, Thrust: %v, Losses: %v\n", response.Acceleration, rocket.Y, rocket.VelocityY, rocket.Thrust, rocket.Losses)
 
 	return response.Acceleration, nil
 }

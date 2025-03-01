@@ -14,9 +14,9 @@ const (
 	dt      = 0.016 // Интервал времени (шаг симуляции)
 	ve      = 6000  // Скорость истечения газа (м/с)
 	rho0    = 1.225 // Плотность воздуха у поверхности (кг/м³)
-	Cd      = 0.5   // Коэффициент лобового сопротивления
-	A       = 12.0  // Площадь поперечного сечения ракеты (м²)
-	H_scale = 8000  // Высота масштаба атмосферы (~8 км)
+	H_scale = 10000 // Высота масштаба атмосферы (10 км)
+	v_set   = 350   // Установленная скорость (м/с)
+
 )
 
 var rocketState = models.Rocket{}
@@ -43,6 +43,9 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 	if rocketState.Mass == 0 {
 		rocketState = inputRocket
 	}
+	if rocketState.InitialMass == 0 {
+		rocketState.InitialMass = rocketState.Mass // Запоминаем стартовую массу
+	}
 
 	// Если топлива нет, сбрасываем тягу до 0
 	if rocketState.FuelMass <= 0 {
@@ -63,6 +66,8 @@ func integrateHandler(w http.ResponseWriter, r *http.Request) {
 		"mass":         rocketState.Mass,
 		"drag":         rocketState.Drag,
 		"energy":       rocketState.Energy,
+		"initial_mass": rocketState.InitialMass,
+		"losses":       rocketState.Losses,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -91,14 +96,24 @@ func calculateRocketMovement(rocket models.Rocket) (float64, models.Rocket) {
 		rocket.Thrust = 0
 	}
 
+	if rocket.InitialMass > rocket.Mass {
+		deltaV := ve * math.Log(rocket.InitialMass/rocket.Mass) // Идеальное Δv по Циолковскому
+		actualDeltaV := math.Abs(rocket.VelocityY)              // Реальное изменение скорости
+		losses := deltaV - actualDeltaV                         // Потери из-за внешних сил
+
+		fmt.Printf("Циолковский Δv: %.2f м/с, Текущая скорость: %.2f м/с, Потери: %.2f м/с\n",
+			deltaV, actualDeltaV, losses)
+
+		// Отправляем потери в JSON-ответ
+		rocket.Losses = losses
+	}
+
 	// Плотность воздуха на текущей высоте (экспоненциальное убывание)
-	rho := rho0 * math.Exp(-rocket.Y/H_scale)
+	//rho := rho0 * math.Exp(-rocket.Y/H_scale)
 
 	// Сила сопротивления воздуха
-	dragForce := 0.5 * Cd * rho * A * rocket.VelocityY * rocket.VelocityY
-	if rocket.VelocityY > 0 {
-		dragForce = -dragForce // Сопротивление всегда противоположно движению
-	}
+	dragForce := rocket.Mass * g * (rocket.VelocityY * rocket.VelocityY) / (v_set * v_set) * rho0
+
 	rocket.Drag = dragForce
 
 	// Ускорение по уравнению Мещерского: a = (T - mg + D) / m

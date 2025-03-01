@@ -15,7 +15,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 func main() {
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:8080"}, // Разрешаем доступ только с порта 8080
+		AllowedOrigins:   []string{"http://localhost:8081"}, // Разрешаем доступ только с порта 8080
 		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type"},
 		AllowCredentials: true,

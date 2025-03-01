@@ -11,6 +11,7 @@
       <p>Сохранение энергии: {{ formattedEnergy }}</p>
       <p>Масса: {{ formattedMass }}</p>
       <p>Сопротивление: {{ formattedDrag }}</p>
+      <p>Потеря из-за внешних сил от Циолковского: {{ formattedLosses }}</p>
     </div>
   </div>
 </template>
@@ -28,6 +29,7 @@ export default {
       energy: 0,
       mass: 0,
       drag: 0,
+      losses: 0,
       intervalId: null, 
     };
   },
@@ -55,6 +57,9 @@ export default {
       },
       formattedDrag() {
         return this.drag.toFixed(2);
+      },
+      formattedLosses() {
+        return this.losses.toFixed(2);
       },
     },
   mounted() {
@@ -155,6 +160,7 @@ export default {
         this.mass = data.mass;
         this.drag = data.drag;
         this.energy = data.energy;
+        this.losses = data.losses;
       })
       .catch(error => {
         console.error("Error updating rocket data:", error);
@@ -169,8 +175,8 @@ export default {
 .data-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 70px;
-  margin-left: 150px;
+  gap: 40px;
+  margin-left: 0px;
   margin-top: 50px;
 }
 
