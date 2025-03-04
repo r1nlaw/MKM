@@ -39,7 +39,7 @@ const (
 )
 
 func drawRocket(y, velocityY float64) image.Image {
-	img := image.NewRGBA(image.Rect(0, 0, 1900, imageHeight))
+	img := image.NewRGBA(image.Rect(0, 0, 500, imageHeight))
 
 	// Чёрный фон (космос)
 	black := color.RGBA{0, 0, 0, 255}

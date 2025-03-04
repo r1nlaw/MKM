@@ -2,6 +2,6 @@ package handlers
 
 import "net/http"
 
-func IntegrateHandler(w http.ResponseWriter, r *http.Request) {
-	integrateHandler(w, r)
+type Integrator interface {
+	Integrate(w http.ResponseWriter, r *http.Request)
 }

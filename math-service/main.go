@@ -28,7 +28,9 @@ func main() {
 	// Применяем middleware для CORS
 	handlerWithCors := c.Handler(http.DefaultServeMux)
 
-	http.HandleFunc("/math/integrate", handlers.IntegrateHandler)
+	integrationService := &handlers.IntegrattionService{}
+
+	http.HandleFunc("/math/integrate", integrationService.Integrate)
 
 	http.ListenAndServe(":8085", handlerWithCors)
 
