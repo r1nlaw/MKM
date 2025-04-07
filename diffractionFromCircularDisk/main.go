@@ -25,7 +25,7 @@ const (
 	lambda      = 500e-9  // Длина волны (500 нм)
 	diskRadius  = 100e-6  // Радиус диска (100 мкм)
 	distance    = 7.14e-3 // Расстояние до экрана мм
-	samples     = 10000   // Количество точек на краю диска
+	samples     = 100000  // Количество точек на краю диска
 	screenWidth = 0.5e-3  // Ширина экрана мм
 )
 
@@ -104,17 +104,17 @@ func calculateAmplitude(points []Point, x, y float64) (float64, float64) {
 		fresnelFactor = 1 / math.Sqrt(m)
 	}
 
-	// Вычисление амплитуды с учетом коррекции интенсивности
+	// Вычисление амплитуды
 	for _, p := range points {
 		dx := x - p.X
 		dy := y - p.Y
 		phase := (k / (2 * distance)) * (dx*dx + dy*dy)
 		re += math.Cos(phase)
-		im += math.Sin(phase)
+		im += math.Sin(phase) // Суммируем синусы и косинусы фаз от всех точек и получаем суммарную амплитуду в точках
 	}
 
 	n := float64(len(points))
-	amplitude := fresnelFactor * (re / n) // Коррекция интенсивности с учетом зон Френеля
+	amplitude := fresnelFactor * (re / n) // Средняя амплитуда на точке
 	return amplitude, fresnelFactor * (im / n)
 }
 
@@ -152,12 +152,12 @@ func createPoissonEffectImage(points []Point, filename string) {
 	// Многозадачность с использованием атомарного максимума интенсивности
 	var maxIntensity uint64
 	var wg sync.WaitGroup
-	blockSize := imgHeight / 1024
+	blockSize := imgHeight / 8
 	if blockSize == 0 {
 		blockSize = 1
 	}
 
-	for blockY := 0; blockY < 1024 && blockY*blockSize < imgHeight; blockY++ {
+	for blockY := 0; blockY < 8 && blockY*blockSize < imgHeight; blockY++ {
 		wg.Add(1)
 		go func(blockY int) {
 			defer wg.Done()
@@ -175,10 +175,10 @@ func createPoissonEffectImage(points []Point, filename string) {
 					}
 					xPos := (float64(x) - float64(imgWidth)/2) * scale
 					yPos := (float64(y) - float64(imgHeight)/2) * scale
-					re, im := calculateAmplitude(points, xPos, yPos)
+					re, im := calculateAmplitude(points, xPos, yPos) // действительные и мнимые части амплитуды
 					intensity[y][x] = re*re + im*im
 					current := math.Float64bits(intensity[y][x])
-					for {
+					for { // находим максимальную интенсивность для нормализации всех пикселей [0....1]
 						old := atomic.LoadUint64(&maxIntensity)
 						if current <= old || atomic.CompareAndSwapUint64(&maxIntensity, old, current) {
 							break
