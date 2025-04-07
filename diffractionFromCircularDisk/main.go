@@ -47,7 +47,13 @@ func main() {
 	fmt.Println("Создание графика интенсивности...")
 	startPlot := time.Now()
 	createIntensityPlot(edgePoints, "intensity_plot.png")
-	fmt.Printf("Создание графика заняла: %v\n", time.Since(startPlot))
+	fmt.Printf("Создание графика заняло: %v\n", time.Since(startPlot))
+
+	calculateFresnelZones(diskRadius, lambda, distance)
+
+	centerRe, centerIm := calculateAmplitude(edgePoints, 0, 0)
+	centerIntensity := centerRe*centerRe + centerIm*centerIm
+	fmt.Printf("Интенсивность в центре экрана: %.6f\n", centerIntensity)
 
 	fmt.Printf("Полное время выполнения программы: %v\n", time.Since(start))
 }
@@ -68,7 +74,7 @@ func generateDiskEdgePoints(n int, r float64) []Point {
 		}
 		go func(start, end int) {
 			defer wg.Done()
-			rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(start))) // отдельный генератор на поток
+			rng := rand.New(rand.NewSource(time.Now().UnixNano() + int64(start)))
 			for i := start; i < end; i++ {
 				theta := rng.Float64() * 2 * math.Pi
 				points[i] = Point{
@@ -87,29 +93,45 @@ func calculateAmplitude(points []Point, x, y float64) (float64, float64) {
 	var re, im float64
 	k := 2 * math.Pi / lambda
 
-	for _, p := range points { // вычисляем амплитуду для каждой точки (расстояние до точки экрана и фазе волны)
+	// Расчет зоны Френеля
+	r0 := diskRadius                    // Радиус диска
+	b := distance                       // Расстояние до экрана
+	m := (r0 * r0 / lambda) * (1.0 / b) // Количество зон Френеля
+
+	// Если количество зон Френеля больше, делаем интенсивность в центре более темной
+	fresnelFactor := 1.0
+	if m > 1 {
+		fresnelFactor = 1 / math.Sqrt(m)
+	}
+
+	// Вычисление амплитуды с учетом коррекции интенсивности
+	for _, p := range points {
 		dx := x - p.X
 		dy := y - p.Y
-		r := math.Sqrt(dx*dx + dy*dy + distance*distance)
-		phase := k * r
-		amplitude := 1.0 / r
-
-		re += amplitude * math.Cos(phase)
-		im += amplitude * math.Sin(phase)
+		phase := (k / (2 * distance)) * (dx*dx + dy*dy)
+		re += math.Cos(phase)
+		im += math.Sin(phase)
 	}
 
 	n := float64(len(points))
-	return re / n, im / n // действительная и мнимая части амплитуды для точки экрана
+	amplitude := fresnelFactor * (re / n) // Коррекция интенсивности с учетом зон Френеля
+	return amplitude, fresnelFactor * (im / n)
 }
 
 func createPoissonEffectImage(points []Point, filename string) {
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 	scale := screenWidth / float64(imgWidth)
-
-	// Закрашиваем диск черным цветом
 	diskCenterX, diskCenterY := imgWidth/2, imgHeight/2
 	diskRadiusPx := int(diskRadius / scale)
 
+	// Вычисление количества зон Френеля
+	m := (diskRadius * diskRadius / lambda) * (1.0 / distance)
+	fresnelFactor := 1.0
+	if m > 1 {
+		fresnelFactor = 1 / math.Sqrt(m)
+	}
+
+	// Заполнение изображения черным цветом для пустой области
 	for y := 0; y < imgHeight; y++ {
 		for x := 0; x < imgWidth; x++ {
 			dx := x - diskCenterX
@@ -121,26 +143,27 @@ func createPoissonEffectImage(points []Point, filename string) {
 		}
 	}
 
-	// Инициализация структуры для интенсивности
+	// Массив интенсивности
 	intensity := make([][]float64, imgHeight)
 	for i := range intensity {
 		intensity[i] = make([]float64, imgWidth)
 	}
 
-	// Используем atomic для поиска максимальной интенсивности
+	// Многозадачность с использованием атомарного максимума интенсивности
 	var maxIntensity uint64
-
-	// Параллельная обработка блоков изображения
 	var wg sync.WaitGroup
-	blockSize := imgHeight / 1024 // Разделим на 128 блоков
+	blockSize := imgHeight / 1024
+	if blockSize == 0 {
+		blockSize = 1
+	}
 
-	for blockY := 0; blockY < 1024; blockY++ {
+	for blockY := 0; blockY < 1024 && blockY*blockSize < imgHeight; blockY++ {
 		wg.Add(1)
 		go func(blockY int) {
 			defer wg.Done()
 			startY := blockY * blockSize
 			endY := startY + blockSize
-			if blockY == 7 {
+			if endY > imgHeight {
 				endY = imgHeight
 			}
 			for y := startY; y < endY; y++ {
@@ -150,13 +173,10 @@ func createPoissonEffectImage(points []Point, filename string) {
 					if dx*dx+dy*dy < diskRadiusPx*diskRadiusPx {
 						continue
 					}
-
 					xPos := (float64(x) - float64(imgWidth)/2) * scale
 					yPos := (float64(y) - float64(imgHeight)/2) * scale
 					re, im := calculateAmplitude(points, xPos, yPos)
 					intensity[y][x] = re*re + im*im
-
-					// Использование atomic для обновления максимальной интенсивности
 					current := math.Float64bits(intensity[y][x])
 					for {
 						old := atomic.LoadUint64(&maxIntensity)
@@ -171,23 +191,32 @@ func createPoissonEffectImage(points []Point, filename string) {
 
 	wg.Wait()
 
-	// Находим максимальную интенсивность
+	// Нормализация интенсивности
 	maxI := math.Float64frombits(maxIntensity)
 	if maxI == 0 {
 		maxI = 1
 	}
 
-	// Добавляем яркую точку в центре (эффект Пуассона)
+	// Отображение Пуазона с учетом интенсивности и затемнения центра
 	poissonRadius := 3
 	for y := diskCenterY - poissonRadius; y <= diskCenterY+poissonRadius; y++ {
 		for x := diskCenterX - poissonRadius; x <= diskCenterX+poissonRadius; x++ {
 			if x >= 0 && x < imgWidth && y >= 0 && y < imgHeight {
-				img.Set(x, y, color.RGBA{255, 255, 255, 255})
+				xPos := (float64(x) - float64(imgWidth)/2) * scale
+				yPos := (float64(y) - float64(imgHeight)/2) * scale
+				re, im := calculateAmplitude(points, xPos, yPos)
+				intens := re*re + im*im
+
+				// Уменьшаем интенсивность по центру, если много зон
+				intens *= fresnelFactor
+
+				normIntensity := intens / maxI
+				img.Set(x, y, colorFromRingIntensity(normIntensity, x, y, diskCenterX, diskCenterY))
 			}
 		}
 	}
 
-	// Рисуем дифракционные кольца
+	// Установка цвета пикселей с нормализованной интенсивностью
 	for y := 0; y < imgHeight; y++ {
 		for x := 0; x < imgWidth; x++ {
 			dx := x - diskCenterX
@@ -203,28 +232,26 @@ func createPoissonEffectImage(points []Point, filename string) {
 }
 
 func colorFromRingIntensity(intensity float64, x, y, centerX, centerY int) color.RGBA {
-	// Цвета для дифракционных колец
-	r := uint8(255 * math.Pow(intensity, 0.4))
-	g := uint8(255 * math.Pow(intensity, 0.8))
-	b := uint8(255 * math.Pow(intensity, 0.8))
-
-	// Вычисляем расстояние от центра с правильным приведением типов
+	r := uint8(255 * math.Pow(intensity, 0.6))
+	g := uint8(255 * math.Pow(intensity, 0.9))
+	b := uint8(255 * math.Pow(intensity, 0.4))
 	dx := float64(x - centerX)
 	dy := float64(y - centerY)
 	dist := math.Sqrt(dx*dx + dy*dy)
 
-	// Добавляем синий оттенок для первых колец
+	// Увеличение синего цвета внутри радиуса
 	if dist < 100 {
 		b = uint8(math.Min(255, float64(b)+150*math.Pow(intensity, 0.8)))
 	}
 
 	return color.RGBA{r, g, b, 255}
 }
+
 func createIntensityPlot(points []Point, filename string) {
 	p := plot.New()
 	p.Title.Text = "Распределение интенсивности"
 	p.X.Label.Text = "Расстояние от центра, мм"
-	p.Y.Label.Text = "Относительная интенсивность"
+	p.Y.Label.Text = "Абсолютная интенсивность"
 
 	scale := screenWidth / float64(imgWidth)
 	pts := make(plotter.XYs, imgWidth)
@@ -244,9 +271,6 @@ func createIntensityPlot(points []Point, filename string) {
 
 	if maxIntensity == 0 {
 		maxIntensity = 1
-	}
-	for i := range pts {
-		pts[i].Y /= maxIntensity
 	}
 
 	line, err := plotter.NewLine(pts)
@@ -276,4 +300,9 @@ func saveImage(img *image.RGBA, filename string) {
 	if err := png.Encode(f, img); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func calculateFresnelZones(r0, lambda, b float64) {
+	m := (r0 * r0 / lambda) * (1.0 / b)
+	fmt.Printf("Количество открытых зон Френеля: m = %.2f\n", m)
 }
