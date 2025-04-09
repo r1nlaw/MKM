@@ -108,7 +108,7 @@ func calculateAmplitude(points []Point, x, y float64) (float64, float64) {
 	for _, p := range points {
 		dx := x - p.X
 		dy := y - p.Y
-		phase := (k / (2 * distance)) * (dx*dx + dy*dy)
+		phase := (k / (2 * distance)) * (dx*dx + dy*dy) //	формула Френеля
 		re += math.Cos(phase)
 		im += math.Sin(phase) // Суммируем синусы и косинусы фаз от всех точек и получаем суммарную амплитуду в точках
 	}
