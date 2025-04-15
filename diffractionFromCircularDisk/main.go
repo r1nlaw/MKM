@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"image"
 	"image/color"
@@ -14,24 +15,39 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/schollz/progressbar/v3"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/vg"
 )
 
 const (
-	imgWidth    = 800
-	imgHeight   = 800
-	lambda      = 500e-9  // Длина волны (500 нм)
-	diskRadius  = 100e-6  // Радиус диска (100 мкм)
-	distance    = 7.14e-3 // Расстояние до экрана мм
-	samples     = 100000  // Количество точек на краю диска
-	screenWidth = 0.5e-3  // Ширина экрана мм
+	imgWidth  = 800
+	imgHeight = 800
 )
 
 type Point struct{ X, Y float64 }
 
+var (
+	lambda      float64
+	diskRadius  float64
+	distance    float64
+	samples     int
+	screenWidth float64
+)
+
 func main() {
+	fmt.Print("Введите длину волны (в метрах, например 500e-9): ")
+	fmt.Scan(&lambda)
+	fmt.Print("Введите радиус диска (в метрах, например 100e-6): ")
+	fmt.Scan(&diskRadius)
+	fmt.Print("Введите расстояние до экрана (в метрах, например 7.14e-3): ")
+	fmt.Scan(&distance)
+	fmt.Print("Введите количество точек на краю диска (например 10000): ")
+	fmt.Scan(&samples)
+	fmt.Print("Введите ширину экрана (в метрах, например 0.5e-3): ")
+	fmt.Scan(&screenWidth)
+
 	start := time.Now()
 
 	fmt.Println("Генерация точек...")
@@ -39,10 +55,10 @@ func main() {
 	edgePoints := generateDiskEdgePoints(samples, diskRadius)
 	fmt.Printf("Генерация точек заняла: %v\n", time.Since(startPoints))
 
-	fmt.Println("Создание изображения...")
+	fmt.Println("Создание изображения... \n")
 	startImage := time.Now()
 	createPoissonEffectImage(edgePoints, "poisson_effect.png")
-	fmt.Printf("Создание изображения заняло: %v\n", time.Since(startImage))
+	fmt.Printf("\nСоздание изображения заняло: %v\n", time.Since(startImage))
 
 	fmt.Println("Создание графика интенсивности...")
 	startPlot := time.Now()
@@ -56,6 +72,18 @@ func main() {
 	fmt.Printf("Интенсивность в центре экрана: %.6f\n", centerIntensity)
 
 	fmt.Printf("Полное время выполнения программы: %v\n", time.Since(start))
+
+	fmt.Println("Нажмите 'q', чтобы закрыть программу")
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		exit := scanner.Text()
+		if exit == "q" {
+			break
+		} else {
+			fmt.Println("Нажмите 'q', чтобы закрыть программу")
+		}
+	}
+
 }
 
 func generateDiskEdgePoints(n int, r float64) []Point {
@@ -157,6 +185,13 @@ func createPoissonEffectImage(points []Point, filename string) {
 		blockSize = 1
 	}
 
+	// Создание прогрессбара
+	bar := progressbar.NewOptions(
+		imgWidth*imgHeight,
+		progressbar.OptionSetWriter(os.Stdout),
+		progressbar.OptionSetDescription("Обработка пикселей..."),
+		progressbar.OptionSetWidth(30),
+	)
 	for blockY := 0; blockY < 8 && blockY*blockSize < imgHeight; blockY++ {
 		wg.Add(1)
 		go func(blockY int) {
@@ -166,6 +201,8 @@ func createPoissonEffectImage(points []Point, filename string) {
 			if endY > imgHeight {
 				endY = imgHeight
 			}
+
+			counter := 0 // Счётчик для обновления прогресс-бара
 			for y := startY; y < endY; y++ {
 				for x := 0; x < imgWidth; x++ {
 					dx := x - diskCenterX
@@ -183,6 +220,11 @@ func createPoissonEffectImage(points []Point, filename string) {
 						if current <= old || atomic.CompareAndSwapUint64(&maxIntensity, old, current) {
 							break
 						}
+					}
+
+					counter++
+					if counter%1000 == 0 {
+						_ = bar.Add(1000)
 					}
 				}
 			}
